@@ -1,208 +1,200 @@
 
-# PROJECT: AI-Powered Claim Denial<br>Prevention & Remediation System
+# PROJECT: AI-Powered Claim Denial Prevention & Remediation System
 
-## 🏥 REAL-WORLD HEALTHCARE FLOW
+## Real-World Healthcare Data Flow
 
-### Doctor examines patient
+### Doctor Examination Phase
 
-- Writes diagnosis (ICD codes)
-- Performs procedure (CPT codes)
+- Diagnosis documentation (ICD codes)
+- Procedure execution (CPT codes)
 
-### Billing Team prepares claim
+### Billing Operations
 
-- Adds patient details
-- Adds provider details
-- Adds diagnosis + procedure codes
-- Adds billing amount
+- Patient demographic ingestion
+- Provider information attachment
+- Diagnosis and procedure code mapping
+- Billing amount calculation
 
-### 🚀 OUR SYSTEM (MAIN PROJECT)
+### Proposed System Architecture (Main Project)
 
-- Validates claim BEFORE submission
-- Predicts denial risk
-- Explains reasons
-- Suggests fixes
+- Pre-submission claim validation
+- Denial risk probability scoring
+- Interpretability and justification (Explainable AI)
+- Automated remediation suggestions
 
-### Insurance Company (Payer)
+### Payer (Insurance) Adjudication
 
-- Reviews claim
-- Approves OR Denies
-- Sends payment / rejection
+- Claim review process
+- Approval or denial classification
+- Payment disbursement or rejection generation
 
-
-## 👤 PRIMARY USER (SYSTEM USER)
+## Primary System Users (Actors)
 
 ### Billing / Claims Analyst
 
-- Creates claim
-- Reviews risk alerts
-- Fixes errors
-- Resubmits claim
+- Claim formulation
+- Risk alert evaluation
+- Error remediation
+- Claim resubmission
 
-### (Secondary Users - Future Scope)
+### Secondary Stakeholders (Future Scope)
 
-- Doctor → improve documentation
-- Insurance → auto adjudication
-- Patient → claim tracking
+- Providers → Clinical documentation improvement
+- Payers → Automated adjudication pipelines
+- Patients → Claim status tracking
 
+## System Evolution & Development Roadmap
 
-## ⚙️ SYSTEM EVOLUTION (WEEK-BY-WEEK DEVELOPMENT)
+### Phase 1 (Week 1): Foundational Data Infrastructure
 
-### 📅 WEEK 1 → Basic Data System (Foundation)
+- Implement data ingestion pipelines
+- Load raw claims dataset
+- Persist in Bronze layer (Delta Lake)
+- Output → Successful claim persistence
 
-- Build data ingestion pipeline
-- Load claims dataset (raw)
-- Store in Bronze layer (Delta)
-- Output → claim stored successfully
+### Phase 2 (Week 2): Data Visualization & Reporting Layer
 
-### 📅 WEEK 2 → Data Visibility Layer
+- Develop analytical dashboards
+- Visualize:
+   - Historical claims data
+   - Provider activity metrics
+   - Claim cost trends
+- Output → Baseline analytics interface
 
-- Create dashboards
-- Show:
-   - Past claims history
-   - Provider activity
-   - Claim amounts trend
-- Output → basic analytics view
+### Phase 3 (Week 3): Deterministic Rule-Based Validation Engine
 
+- Encode business logic rules:
+   - Missing diagnostic codes
+   - Invalid CPT/ICD crosswalks
+   - Null or constrained fields
+   - Basic referential integrity checks
+- Output → Deterministic warning flags (manual remediation)
 
+### Phase 4 (Week 4): Predictive Machine Learning Engine
 
-### 📅 WEEK 3 → Rule-Based Validation Engine
+- Implement feature engineering pipeline (Gold layer)
+   - Claim amount variance vs. historical average
+   - Provider historical denial rates
+   - Diagnosis severity complexity
+   - Claim submission frequency
+- Train predictive model (Logistic Regression / XGBoost)
+- Output → Probabilistic denial risk score
 
-- Implement business rules:
-   - Missing diagnosis code
-   - Invalid CPT/ICD mapping
-   - Empty or null fields
-   - Basic data consistency checks
-- Output → warning flags (manual checks)
+### Phase 5 (Week 5): Explainable AI (XAI) Component
 
-### 📅 WEEK 4 → Machine Learning Prediction
+- Generate rationale for high-risk claims
+- Leverage:
+   - Feature importance metrics (e.g., SHAP/LIME)
+   - Deterministic rule insights
+- Output → Human-readable justification vector
 
-- Build feature engineering (Gold layer)
-   - Claim amount vs average
-   - Provider historical risk
-   - Diagnosis complexity
-   - Claim frequency
-- Train ML model (Logistic/XGBoost)
-- Output → Denial probability score
+### Phase 6 (Week 6): Retrieval-Augmented Generation (RAG) Architecture
 
-### 📅 WEEK 5 → Explainable AI Layer
+- Ingest payer policy documentation (PDF/Text)
+- Generate vector embeddings
+- Index in vector database
+- Retrieve contextually relevant policy constraints
+- Output → Policy-backed contextual explanation
 
-- Show WHY claim is risky
-- Use:
-   - Feature importance
-   - Rule insights
-- Output → reason list (human readable)
+### Phase 7 (Week 7): Agentic AI Orchestration
 
-
-
-### 📅 WEEK 6 → RAG (Retrieval-Augmented Generation)
-
-- Load policy documents (PDF/text)
-- Convert to embeddings
-- Store in vector database
-- Retrieve relevant policy rules
-- Output → policy-backed explanation
-
-### 📅 WEEK 7 → Agentic AI System
-
-- Combine:
-   - ML Prediction
-   - RAG output
-   - Rule checks
-
+- Orchestrate:
+   - ML inference outputs
+   - RAG contextual retrieval
+   - Deterministic rule evaluations
 - Generate:
-   - Fix recommendation
-   - Action steps
-   - Priority level
+   - Concrete remediation recommendations
+   - Sequential action steps
+   - Prioritization matrix
+- Output → Intelligent remediation workflow
 
-- Output → smart remediation plan
+### Phase 8 (Week 8): End-to-End System Integration (MVP)
 
-### 📅 WEEK 8 → Full Intelligent System (Final Product)
+- Full process automation
+- API and UI systems integration
+- Telemetry and monitoring dashboards
+- Real-time user correction loop
+- Output → Optimized claim submission pipeline
 
-- End-to-end automation
-- API / UI integration
-- Dashboard + monitoring
-- User corrects claim instantly
-- Output → optimized claim submission
+## Data Engineering Pipeline (Medallion Architecture)
 
-## 📊 DATA ENGINEERING FLOW (MEDALLION ARCHITECTURE)
+### Bronze Layer (Raw Ingestion)
 
-### 🥉 Bronze Layer (Raw Data)
+- Claims raw dataset
+- Provider reference data
+- Diagnosis reference data
+- Cost benchmark data
 
-- Claims dataset
-- Provider dataset
-- Diagnosis dataset
-- Cost dataset
+### Silver Layer (Processed & Standardized Data)
 
-### 🥈 Silver Layer (Clean Data)
+- Deduplication processes
+- Null value imputation
+- Code standardization algorithms
+- Relational dataset joins
+- Schema validation enforcement
 
-- Remove duplicates
-- Fix missing values
-- Standardize codes
-- Join datasets
-- Validate schema
+### Gold Layer (Curated & Feature-Ready Data)
 
-### 🥇 Gold Layer (Business + AI Ready)
+- Aggregated feature tables
+- Derived analytical metrics
+- Risk-specific feature vectors
+- ML-ready training datasets
 
-- Feature tables
-- Aggregations
-- Risk features
-- ML training dataset
-
-## 🤖 AI COMPONENTS (CORE INTELLIGENCE)
+## Core Artificial Intelligence Components
 
 ### Machine Learning Model
 
-- Input → features
-- Output → denial probability
-- Use → risk prediction
+- Input → Feature vectors
+- Output → Probability of denial
+- Function → Risk stratification
 
 ### RAG System
 
-- Input → claim + query
-- Process → retrieve policies
-- Output → explanation
+- Input → Claim instance + Natural language query
+- Process → Semantic policy retrieval
+- Output → Document-backed explanation
 
-### Agent System
+### Agent Orchestration System
 
-- Combines ML + RAG + rules
-- Thinks like analyst
-- Output → fix recommendation
+- Function → Integrates ML + RAG + Rules
+- Process → Simulates expert analyst cognition
+- Output → Actionable remediation plan
 
-## 🔄 COMPLETE DATA FLOW
+## Complete Data Processing Lifecycle
 
-### Input:
+### Ingestion:
 
-- Claim data
-- Provider data
-- Diagnosis data
+- Claim parameters
+- Provider metadata
+- Diagnostic vectors
 - Cost benchmarks
-- Policy documents
+- Policy corpora
 
-### Processing:
+### Processing Pipeline:
 
-- Cleaning
-- Feature creation
-- Prediction
-- Retrieval
+- Data sanitization
+- Feature derivation
+- Risk inference
+- Context retrieval
 
-### Output:
+### Inference Output:
 
-- Risk score (High/Low)
-- Reason for denial
-- Suggested fix
+- Categorical risk score (e.g., High/Low)
+- Detailed justification
+- Prescriptive remediation
 
-## 🎯 FINAL OUTPUT (USER VIEW)
+## Final System Output (UI/UX Perspective)
 
 ### Claim Risk Score → (e.g., 0.82 HIGH)
 
-### Reason:
+### Justification:
 
-- Missing diagnosis
-- High billing amount
-- Provider risk
+- Omitted diagnostic code
+- Statistically anomalous billing amount
+- Historically high-risk provider
 
-### Fix Recommendation:
+### Remediation Recommendation:
 
-- Add ICD code
-- Correct mapping
-- Review documentation
+- Append valid ICD code
+- Reconcile CPT/ICD mapping
+- Audit clinical documentation
