@@ -261,34 +261,52 @@ st.markdown(
 )
 
 # Input section
-st.subheader("📂 Upload Claims File")
-uploaded_file = st.file_uploader(
-    "Upload a CSV file with a `claim_id` column",
-    type=["csv"],
-    help="The CSV must contain a column named 'claim_id'.",
-)
+tab_single, tab_multi = st.tabs(["🔍 Single Claim", "📂 Multiple Claims"])
 
 claims_to_show = None
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        if "claim_id" not in df.columns:
-            st.error("❌ The uploaded CSV does not contain a `claim_id` column. Please check your file.")
+with tab_single:
+    st.markdown("<br>", unsafe_allow_html=True)
+    claim_id_input = st.text_input(
+        "Enter Claim ID",
+        placeholder="e.g. CLM-2024-001",
+        help="Type a single claim ID to run analysis on it.",
+    )
+    if st.button("▶ Run Analysis", key="btn_single", type="primary", use_container_width=True):
+        if claim_id_input.strip():
+            match = next((c for c in DUMMY_CLAIMS if c["claim_id"].lower() == claim_id_input.strip().lower()), None)
+            if match:
+                claims_to_show = [match]
+            else:
+                claims_to_show = [{
+                    **DUMMY_CLAIMS[0],
+                    "claim_id": claim_id_input.strip(),
+                }]
         else:
-            st.success(f"✅ File uploaded successfully — {len(df)} claim(s) found.")
-            st.markdown("**Preview of uploaded claims:**")
-            st.dataframe(df[["claim_id"]], use_container_width=True, hide_index=True)
+            st.warning("⚠️ Please enter a Claim ID before running analysis.")
 
-            if st.button("▶ Run Analysis", type="primary", use_container_width=True):
-                claims_to_show = DUMMY_CLAIMS
-
-    except Exception as e:
-        st.error(f"❌ Could not read the file: {e}")
-else:
-    st.info("No file uploaded yet. Using sample data — click **Run Analysis** to see results.")
-    if st.button("▶ Run Analysis (Sample Data)", type="primary", use_container_width=True):
-        claims_to_show = DUMMY_CLAIMS
+with tab_multi:
+    st.markdown("<br>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader(
+        "Upload a CSV file with a `claim_id` column",
+        type=["csv"],
+        help="The CSV must contain a column named 'claim_id'.",
+    )
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            if "claim_id" not in df.columns:
+                st.error("❌ The uploaded CSV does not contain a `claim_id` column. Please check your file.")
+            else:
+                st.success(f"✅ File uploaded successfully — {len(df)} claim(s) found.")
+                st.markdown("**Preview of uploaded claims:**")
+                st.dataframe(df[["claim_id"]], use_container_width=True, hide_index=True)
+                if st.button("▶ Run Analysis", key="btn_multi", type="primary", use_container_width=True):
+                    claims_to_show = DUMMY_CLAIMS
+        except Exception as e:
+            st.error(f"❌ Could not read the file: {e}")
+    else:
+        st.info("No file uploaded yet. Upload a CSV to analyse multiple claims.")
 
 # Output section
 if claims_to_show:
