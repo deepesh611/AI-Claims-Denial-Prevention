@@ -12,28 +12,42 @@ st.markdown(
     """
     <style>
         /* Page background */
-        .stApp { background-color: #ffffff; }
+        .stApp { background-color: #0d1117; }
+
+        /* Kill Streamlit's own white backgrounds */
+        section[data-testid="stSidebar"],
+        .stMainBlockContainer,
+        div[data-testid="stAppViewBlockContainer"],
+        div[data-testid="stVerticalBlock"] { background-color: #0d1117; }
+
+        /* Global text colour */
+        html, body, .stApp, p, li, label, span,
+        .stMarkdown, .stText { color: #e6edf3; }
+
+        /* Subheaders */
+        h2, h3 { color: #c9d1d9 !important; }
 
         /* Header */
         .app-header {
-            background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%);
+            background: linear-gradient(135deg, #0d2137 0%, #0f3460 100%);
+            border: 1px solid #1f6feb;
             padding: 2rem 2.5rem 1.5rem;
             border-radius: 12px;
             margin-bottom: 2rem;
-            color: #ffffff;
+            color: #e6edf3;
         }
-        .app-header h1 { margin: 0; font-size: 2rem; font-weight: 700; }
-        .app-header p  { margin: 0.4rem 0 0; font-size: 1rem; opacity: 0.9; }
+        .app-header h1 { margin: 0; font-size: 2rem; font-weight: 700; color: #e6edf3; }
+        .app-header p  { margin: 0.4rem 0 0; font-size: 1rem; opacity: 0.85; color: #8b949e; }
 
         /* Claim cards */
         .claim-card {
-            background: #f9faff;
-            border: 1px solid #dce3f7;
+            background: #161b22;
+            border: 1px solid #30363d;
             border-radius: 12px;
             padding: 1.5rem 1.75rem;
             margin-bottom: 1.25rem;
         }
-        .claim-id { font-size: 1.25rem; font-weight: 700; color: #1a1a2e; margin-bottom: 0.5rem; }
+        .claim-id { font-size: 1.25rem; font-weight: 700; color: #e6edf3; margin-bottom: 0.5rem; }
 
         /* Status badges */
         .badge {
@@ -46,27 +60,63 @@ st.markdown(
             text-transform: uppercase;
             margin-bottom: 0.75rem;
         }
-        .badge-high  { background: #fdecea; color: #c62828; border: 1px solid #ef9a9a; }
-        .badge-rule  { background: #fffde7; color: #f57f17; border: 1px solid #ffe082; }
-        .badge-low   { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .badge-high  { background: #3d1a1a; color: #ff7b72; border: 1px solid #6e2626; }
+        .badge-rule  { background: #2d2200; color: #e3b341; border: 1px solid #5a4000; }
+        .badge-low   { background: #0d2a0d; color: #56d364; border: 1px solid #1a5c1a; }
 
         /* Section labels inside cards */
-        .field-label { font-size: 0.78rem; font-weight: 600; color: #5c6bc0; text-transform: uppercase;
+        .field-label { font-size: 0.78rem; font-weight: 600; color: #58a6ff; text-transform: uppercase;
                        letter-spacing: 0.06em; margin-top: 0.9rem; margin-bottom: 0.2rem; }
-        .field-value { font-size: 0.95rem; color: #1a1a2e; }
-        .risk-score  { font-size: 1.6rem; font-weight: 700; color: #1565C0; }
+        .field-value { font-size: 0.95rem; color: #e6edf3; }
+        .risk-score  { font-size: 1.6rem; font-weight: 700; color: #58a6ff; }
 
         /* Upload box */
         .upload-section {
-            background: #f0f4ff;
-            border: 2px dashed #90a4e4;
+            background: #161b22;
+            border: 2px dashed #30363d;
             border-radius: 10px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
 
+        /* Streamlit file uploader & input widgets — dark */
+        [data-testid="stFileUploader"] {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.5rem;
+        }
+        [data-testid="stFileUploader"] label,
+        [data-testid="stFileUploader"] span { color: #8b949e !important; }
+
+        /* Metric cards */
+        [data-testid="stMetric"] {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+        }
+        [data-testid="stMetricLabel"] { color: #8b949e !important; }
+        [data-testid="stMetricValue"]  { color: #e6edf3 !important; }
+
+        /* Expander */
+        [data-testid="stExpander"] {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+        }
+        [data-testid="stExpander"] summary { color: #58a6ff !important; }
+
+        /* Table */
+        table { background: #161b22 !important; color: #e6edf3 !important; }
+        th { background: #21262d !important; color: #8b949e !important; }
+        td { color: #e6edf3 !important; border-color: #30363d !important; }
+
         /* Divider */
-        hr.section-divider { border: none; border-top: 2px solid #e8eaf6; margin: 2rem 0; }
+        hr.section-divider { border: none; border-top: 1px solid #30363d; margin: 2rem 0; }
+
+        /* Info / success / error boxes */
+        [data-testid="stAlert"] { background: #161b22 !important; border-color: #30363d !important; }
     </style>
     """,
     unsafe_allow_html=True,
