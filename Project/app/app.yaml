@@ -1,0 +1,13 @@
+command: [
+  "python",
+  "app.py"
+]
+env:
+  - name: DATABRICKS_HOST
+    value: https://dbc-2eeeec2a-2484.cloud.databricks.com
+  - name: DATABRICKS_TOKEN
+    value: dapiee6d412db37044a7f1a0d386146cf44c
+  - name: DATABRICKS_HTTP_PATH
+    value: /sql/1.0/warehouses/2e7d08a047a927cf
+  - name: OPENAI_API_KEY
+    value: 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

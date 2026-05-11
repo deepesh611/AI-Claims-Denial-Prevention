@@ -252,9 +252,6 @@ registered_model = mlflow.register_model(
 print(f"Model registered: {registered_model.name}")
 print(f"Version: {registered_model.version}")
 
-
-
-
 test_claims = np.array([
     [15000.0, 2.5,  1, 3, 0, 4, 3],   # High risk — Cardiology, Heart, Hyderabad
     [20000.0, 3.8,  1, 3, 0, 2, 4],   # High risk — Cardiology, Diabetes, Mumbai

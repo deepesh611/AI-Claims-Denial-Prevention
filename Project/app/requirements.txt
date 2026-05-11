@@ -1,0 +1,12 @@
+dash
+dash-bootstrap-components
+pandas
+plotly
+pyspark
+databricks-sql-connector
+xgboost
+scikit-learn
+shap>=0.46.0
+sentence-transformers
+pdfplumber
+openai
