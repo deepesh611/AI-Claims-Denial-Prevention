@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+pandas
+numpy
+xgboost
+shap
+mlflow
+databricks-sql-connector
+openai
+pdfplumber
+sentence-transformers
+scikit-learn
