@@ -1,15 +1,19 @@
-# pipeline/ml_scoring_bq.py  (GCP BigQuery version)
+# pipeline/ml_scoring.py
 
 import pandas as pd
 import numpy as np
 import os
-from google.cloud import bigquery
+from databricks import sql
 
-PROJECT  = os.environ.get("GCP_PROJECT_ID", "your-gcp-project-id")
-DATASET  = "gold"
+CATALOG = "main"
+SCHEMA  = "gold"
 
-def get_client():
-    return bigquery.Client(project=PROJECT)
+def get_connection():
+    return sql.connect(
+        server_hostname = os.environ["DATABRICKS_HOST"],
+        http_path       = os.environ["DATABRICKS_HTTP_PATH"],
+        access_token    = os.environ["DATABRICKS_TOKEN"]
+    )
 
 def get_claims_data(claim_ids: list):
     ids_str = ", ".join([f"'{cid}'" for cid in claim_ids])
@@ -23,12 +27,16 @@ def get_claims_data(claim_ids: list):
             specialty,
             category,
             location
-        FROM `{PROJECT}.{DATASET}.gold_claim_features`
+        FROM {CATALOG}.{SCHEMA}.gold_claim_features
         WHERE claim_id IN ({ids_str})
     """
-    client = get_client()
-    query_job = client.query(query)
-    return query_job.to_dataframe()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            cols = [d[0] for d in cursor.description]
+
+    return pd.DataFrame(rows, columns=cols)
 
 def encode_categoricals(df: pd.DataFrame):
     cat_cols = ["specialty", "category", "location"]
@@ -45,7 +53,7 @@ def run_ml_scoring(claim_ids: list):
     import mlflow.xgboost
 
     mlflow.set_registry_uri("databricks-uc")
-    model_uri = f"models:/{PROJECT}.{DATASET}.claim_denial_model/1"
+    model_uri = f"models:/{CATALOG}.{SCHEMA}.claim_denial_model/1"
     xgb_model = mlflow.xgboost.load_model(model_uri)
 
     df = get_claims_data(claim_ids)

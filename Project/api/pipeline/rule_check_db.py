@@ -1,14 +1,18 @@
-# pipeline/rule_check_bq.py  (GCP BigQuery version)
+# pipeline/rule_check.py
 
 import pandas as pd
+from databricks import sql
 import os
-from google.cloud import bigquery
 
-PROJECT  = os.environ.get("GCP_PROJECT_ID", "your-gcp-project-id")
-DATASET  = "gold"
+CATALOG = "main"
+SCHEMA  = "gold"
 
-def get_client():
-    return bigquery.Client(project=PROJECT)
+def get_connection():
+    return sql.connect(
+        server_hostname = os.environ["DATABRICKS_HOST"],
+        http_path       = os.environ["DATABRICKS_HTTP_PATH"],
+        access_token    = os.environ["DATABRICKS_TOKEN"]
+    )
 
 def run_rule_check(claim_ids: list):
 
@@ -26,13 +30,17 @@ def run_rule_check(claim_ids: list):
             expected_cost,
             billed_vs_avg_cost,
             date
-        FROM `{PROJECT}.{DATASET}.gold_claim_features`
+        FROM {CATALOG}.{SCHEMA}.gold_claim_features
         WHERE claim_id IN ({ids_str})
     """
 
-    client = get_client()
-    query_job = client.query(query)
-    df = query_job.to_dataframe()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            cols = [d[0] for d in cursor.description]
+
+    df = pd.DataFrame(rows, columns=cols)
 
     # Claims not found
     found_ids = df["claim_id"].tolist()

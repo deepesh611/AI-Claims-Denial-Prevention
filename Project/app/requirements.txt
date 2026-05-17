@@ -10,3 +10,5 @@ shap>=0.46.0
 sentence-transformers
 pdfplumber
 openai
+google-cloud-bigquery
+google-cloud-storage

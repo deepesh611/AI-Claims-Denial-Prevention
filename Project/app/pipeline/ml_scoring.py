@@ -1,23 +1,32 @@
 # pipeline/ml_scoring.py
-
+import os
 import pandas as pd
 import numpy as np
-import os
-from databricks import sql
+import xgboost as xgb
+from google.cloud import bigquery, storage
 
-CATALOG = "main"
-SCHEMA  = "gold"
+PROJECT = os.environ.get("GCP_PROJECT_ID", "ai-claims-denial-prediction")
+BUCKET  = os.environ.get("GCS_BUCKET", "ai-claims-denial-data")
+DATASET = "gold"
 
-def get_connection():
-    return sql.connect(
-        server_hostname = os.environ["DATABRICKS_HOST"],
-        http_path       = os.environ["DATABRICKS_HTTP_PATH"],
-        access_token    = os.environ["DATABRICKS_TOKEN"]
-    )
+def get_bq_client():
+    return bigquery.Client(project=PROJECT)
+
+def get_gcs_client():
+    return storage.Client()
+
+def load_model():
+    client = get_gcs_client()
+    bucket = client.bucket(BUCKET)
+    blob   = bucket.blob("models/model.ubj")
+    blob.download_to_filename("/tmp/model.ubj")
+    model  = xgb.XGBClassifier()
+    model.load_model("/tmp/model.ubj")
+    return model
 
 def get_claims_data(claim_ids: list):
-    ids_str = ", ".join([f"'{cid}'" for cid in claim_ids])
-    query = f"""
+    ids_str   = ", ".join([f"'{cid}'" for cid in claim_ids])
+    query     = f"""
         SELECT
             claim_id,
             billed_amount,
@@ -27,44 +36,29 @@ def get_claims_data(claim_ids: list):
             specialty,
             category,
             location
-        FROM {CATALOG}.{SCHEMA}.gold_claim_features
+        FROM `{PROJECT}.{DATASET}.gold_claim_features`
         WHERE claim_id IN ({ids_str})
     """
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            cols = [d[0] for d in cursor.description]
-
-    return pd.DataFrame(rows, columns=cols)
+    client    = get_bq_client()
+    return client.query(query).to_dataframe()
 
 def encode_categoricals(df: pd.DataFrame):
-    cat_cols = ["specialty", "category", "location"]
-    for c in cat_cols:
+    for c in ["specialty", "category", "location"]:
         df[c + "_idx"] = df[c].astype("category").cat.codes
     return df
 
 def run_ml_scoring(claim_ids: list):
-    """
-    Input  : list of claim_ids that passed rule check
-    Output : dict of claim_id -> {risk_score, risk_label}
-    """
-    import mlflow
-    import mlflow.xgboost
-
-    mlflow.set_registry_uri("databricks-uc")
-    model_uri = f"models:/{CATALOG}.{SCHEMA}.claim_denial_model/1"
-    xgb_model = mlflow.xgboost.load_model(model_uri)
-
-    df = get_claims_data(claim_ids)
-    df = encode_categoricals(df)
+    xgb_model = load_model()
+    df        = get_claims_data(claim_ids)
+    df        = encode_categoricals(df)
+    df        = df.reset_index(drop=True)
 
     feature_cols = [
         "billed_amount", "billed_vs_avg_cost", "high_cost_flag",
         "severity_score", "specialty_idx", "category_idx", "location_idx"
     ]
 
-    X = df[feature_cols].values
+    X           = df[feature_cols].values
     probs       = xgb_model.predict_proba(X)[:, 1]
     predictions = (probs >= 0.5).astype(int)
 
