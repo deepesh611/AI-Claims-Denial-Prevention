@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 # Paths
-POLICY_DIR = "/Volumes/main/gold/rag/policies/"
+POLICY_DIR = "data/policies/"
 INDEX_DIR  = "/Volumes/main/gold/rag/index/"
 
 # OpenAI client

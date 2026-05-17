@@ -1,0 +1,5 @@
+numpy
+pdfplumber
+openai
+dotenv
+google-cloud-storage
