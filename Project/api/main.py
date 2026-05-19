@@ -73,14 +73,16 @@ def predict(request: PredictRequest):
         for claim_id, failures in failed.items():
             results.append(ClaimResult(
                 claim_id         = claim_id,
-                status           = "RULE_FAIL",
+                status           = "rule_fail",
                 risk_score       = None,
                 risk_label       = None,
+                risk_level       = "rule_fail",
                 rule_failures    = failures,
                 reason_1         = None,
                 reason_2         = None,
-                policy_source    = None,
+                policy_violated  = None,
                 policy_text      = None,
+                risk_reasons     = failures,
                 ai_recommendation= ai_summaries.get(claim_id)
             ))
 
@@ -88,17 +90,21 @@ def predict(request: PredictRequest):
             ml    = ml_results.get(claim_id, {})
             shap  = shap_results.get(claim_id, {})
             rag   = rag_results.get(claim_id, {})
+            risk_label = ml.get("risk_label", "LOW")
 
             results.append(ClaimResult(
                 claim_id         = claim_id,
-                status           = ml.get("risk_label", "LOW"),
+                # status           = "rule_fail" if not passed else risk_label.lower(),
+                status           = risk_label.lower(),
                 risk_score       = ml.get("risk_score"),
-                risk_label       = ml.get("risk_label"),
+                risk_label       = risk_label,
+                risk_level       = risk_label.lower(),
                 rule_failures    = [],
                 reason_1         = shap.get("reason_1"),
                 reason_2         = shap.get("reason_2"),
-                policy_source    = rag.get("policy_source"),
+                policy_violated  = rag.get("policy_source"),
                 policy_text      = rag.get("policy_text"),
+                risk_reasons     = [r for r in [shap.get("reason_1"), shap.get("reason_2")] if r],
                 ai_recommendation= ai_summaries.get(claim_id)
             ))
 

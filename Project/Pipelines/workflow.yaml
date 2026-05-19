@@ -1,0 +1,387 @@
+main:
+  steps:
+    - init:
+        assign:
+          - project_id: "ai-claims-denial-prediction"
+          - region: "us-central1"
+          - gcs_bucket: "ai-claims-denial-data"
+          - scripts_path: ${"gs://" + gcs_bucket + "/ETL"}
+          - utils_path: ${"gs://" + gcs_bucket + "/ETL/utils.py"}
+
+    # ── Wait for all raw files ──────────────────────────────────────────────
+    - verify_claims:
+        call: http.get
+        args:
+          url: ${"https://storage.googleapis.com/storage/v1/b/" + gcs_bucket + "/o/raw%2Fclaims.csv"}
+          auth:
+            type: OAuth2
+        result: claims_check
+
+    - verify_providers:
+        call: http.get
+        args:
+          url: ${"https://storage.googleapis.com/storage/v1/b/" + gcs_bucket + "/o/raw%2Fproviders.csv"}
+          auth:
+            type: OAuth2
+        result: providers_check
+
+    - verify_diagnosis:
+        call: http.get
+        args:
+          url: ${"https://storage.googleapis.com/storage/v1/b/" + gcs_bucket + "/o/raw%2Fdiagnosis.csv"}
+          auth:
+            type: OAuth2
+        result: diagnosis_check
+
+    - verify_costs:
+        call: http.get
+        args:
+          url: ${"https://storage.googleapis.com/storage/v1/b/" + gcs_bucket + "/o/raw%2Fcosts.csv"}
+          auth:
+            type: OAuth2
+        result: costs_check
+
+    # ── Bronze Claims ───────────────────────────────────────────────────────
+    - submit_bronze_claims:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/bronze/bronze_claims.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: bronze_claims_result
+
+    - wait_bronze_claims:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + bronze_claims_result.body.name}
+          auth:
+            type: OAuth2
+        result: bronze_claims_status
+
+    - check_bronze_claims:
+        switch:
+          - condition: ${bronze_claims_status.body.state == "SUCCEEDED"}
+            next: submit_bronze_providers
+          - condition: ${bronze_claims_status.body.state == "FAILED"}
+            raise: ${"bronze_claims failed: " + bronze_claims_status.body.stateMessage}
+          - condition: ${bronze_claims_status.body.state == "CANCELLED"}
+            raise: "bronze_claims was cancelled"
+        next: wait_bronze_claims
+
+    # ── Bronze Providers ────────────────────────────────────────────────────
+    - submit_bronze_providers:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/bronze/bronze_providers.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: bronze_providers_result
+
+    - wait_bronze_providers:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + bronze_providers_result.body.name}
+          auth:
+            type: OAuth2
+        result: bronze_providers_status
+
+    - check_bronze_providers:
+        switch:
+          - condition: ${bronze_providers_status.body.state == "SUCCEEDED"}
+            next: submit_bronze_diagnosis
+          - condition: ${bronze_providers_status.body.state == "FAILED"}
+            raise: ${"bronze_providers failed: " + bronze_providers_status.body.stateMessage}
+          - condition: ${bronze_providers_status.body.state == "CANCELLED"}
+            raise: "bronze_providers was cancelled"
+        next: wait_bronze_providers
+
+    # ── Bronze Diagnosis ────────────────────────────────────────────────────
+    - submit_bronze_diagnosis:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/bronze/bronze_diagnosis.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: bronze_diagnosis_result
+
+    - wait_bronze_diagnosis:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + bronze_diagnosis_result.body.name}
+          auth:
+            type: OAuth2
+        result: bronze_diagnosis_status
+
+    - check_bronze_diagnosis:
+        switch:
+          - condition: ${bronze_diagnosis_status.body.state == "SUCCEEDED"}
+            next: submit_bronze_costs
+          - condition: ${bronze_diagnosis_status.body.state == "FAILED"}
+            raise: ${"bronze_diagnosis failed: " + bronze_diagnosis_status.body.stateMessage}
+          - condition: ${bronze_diagnosis_status.body.state == "CANCELLED"}
+            raise: "bronze_diagnosis was cancelled"
+        next: wait_bronze_diagnosis
+
+    # ── Bronze Costs ────────────────────────────────────────────────────────
+    - submit_bronze_costs:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/bronze/bronze_costs.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: bronze_costs_result
+
+    - wait_bronze_costs:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + bronze_costs_result.body.name}
+          auth:
+            type: OAuth2
+        result: bronze_costs_status
+
+    - check_bronze_costs:
+        switch:
+          - condition: ${bronze_costs_status.body.state == "SUCCEEDED"}
+            next: submit_silver_claims
+          - condition: ${bronze_costs_status.body.state == "FAILED"}
+            raise: ${"bronze_costs failed: " + bronze_costs_status.body.stateMessage}
+          - condition: ${bronze_costs_status.body.state == "CANCELLED"}
+            raise: "bronze_costs was cancelled"
+        next: wait_bronze_costs
+
+    # ── Silver Claims ───────────────────────────────────────────────────────
+    - submit_silver_claims:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/silver/silver_claims.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: silver_claims_result
+
+    - wait_silver_claims:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + silver_claims_result.body.name}
+          auth:
+            type: OAuth2
+        result: silver_claims_status
+
+    - check_silver_claims:
+        switch:
+          - condition: ${silver_claims_status.body.state == "SUCCEEDED"}
+            next: submit_silver_providers
+          - condition: ${silver_claims_status.body.state == "FAILED"}
+            raise: ${"silver_claims failed: " + silver_claims_status.body.stateMessage}
+          - condition: ${silver_claims_status.body.state == "CANCELLED"}
+            raise: "silver_claims was cancelled"
+        next: wait_silver_claims
+
+    # ── Silver Providers ────────────────────────────────────────────────────
+    - submit_silver_providers:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/silver/silver_providers.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: silver_providers_result
+
+    - wait_silver_providers:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + silver_providers_result.body.name}
+          auth:
+            type: OAuth2
+        result: silver_providers_status
+
+    - check_silver_providers:
+        switch:
+          - condition: ${silver_providers_status.body.state == "SUCCEEDED"}
+            next: submit_silver_diagnosis
+          - condition: ${silver_providers_status.body.state == "FAILED"}
+            raise: ${"silver_providers failed: " + silver_providers_status.body.stateMessage}
+          - condition: ${silver_providers_status.body.state == "CANCELLED"}
+            raise: "silver_providers was cancelled"
+        next: wait_silver_providers
+
+    # ── Silver Diagnosis ────────────────────────────────────────────────────
+    - submit_silver_diagnosis:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/silver/silver_diagnosis.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: silver_diagnosis_result
+
+    - wait_silver_diagnosis:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + silver_diagnosis_result.body.name}
+          auth:
+            type: OAuth2
+        result: silver_diagnosis_status
+
+    - check_silver_diagnosis:
+        switch:
+          - condition: ${silver_diagnosis_status.body.state == "SUCCEEDED"}
+            next: submit_silver_costs
+          - condition: ${silver_diagnosis_status.body.state == "FAILED"}
+            raise: ${"silver_diagnosis failed: " + silver_diagnosis_status.body.stateMessage}
+          - condition: ${silver_diagnosis_status.body.state == "CANCELLED"}
+            raise: "silver_diagnosis was cancelled"
+        next: wait_silver_diagnosis
+
+    # ── Silver Costs ────────────────────────────────────────────────────────
+    - submit_silver_costs:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/silver/silver_costs.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: silver_costs_result
+
+    - wait_silver_costs:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + silver_costs_result.body.name}
+          auth:
+            type: OAuth2
+        result: silver_costs_status
+
+    - check_silver_costs:
+        switch:
+          - condition: ${silver_costs_status.body.state == "SUCCEEDED"}
+            next: submit_gold_claims
+          - condition: ${silver_costs_status.body.state == "FAILED"}
+            raise: ${"silver_costs failed: " + silver_costs_status.body.stateMessage}
+          - condition: ${silver_costs_status.body.state == "CANCELLED"}
+            raise: "silver_costs was cancelled"
+        next: wait_silver_costs
+
+    # ── Gold Claims ─────────────────────────────────────────────────────────
+    - submit_gold_claims:
+        call: http.post
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/batches"}
+          auth:
+            type: OAuth2
+          body:
+            pysparkBatch:
+              mainPythonFileUri: ${scripts_path + "/gold/gold_claims.py"}
+              pythonFileUris:
+                - ${utils_path}
+            runtimeConfig:
+              version: "2.0"
+              properties:
+                spark.executor.instances: "2"
+                spark.executor.cores: "4"
+                spark.driver.cores: "4"
+        result: gold_claims_result
+
+    - wait_gold_claims:
+        call: http.get
+        args:
+          url: ${"https://dataproc.googleapis.com/v1/" + gold_claims_result.body.name}
+          auth:
+            type: OAuth2
+        result: gold_claims_status
+
+    - check_gold_claims:
+        switch:
+          - condition: ${gold_claims_status.body.state == "SUCCEEDED"}
+            next: done
+          - condition: ${gold_claims_status.body.state == "FAILED"}
+            raise: ${"gold_claims failed: " + gold_claims_status.body.stateMessage}
+          - condition: ${gold_claims_status.body.state == "CANCELLED"}
+            raise: "gold_claims was cancelled"
+        next: wait_gold_claims
+
+    - done:
+        return: "Pipeline completed successfully"

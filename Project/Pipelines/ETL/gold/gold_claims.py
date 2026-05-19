@@ -1,98 +1,120 @@
-import dlt
+import logging
+import sys
+from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, avg, when, round, count as spark_count, sum as spark_sum
+from py4j.protocol import Py4JJavaError
+from utils import read_from_gcs, write_to_bq, SILVER_PATH
 
-# Silver source (different pipeline, read via fully qualified name)
-SILVER_CATALOG = "main"
-SILVER_SCHEMA = "silver"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
-# Pipeline config: catalog = "main", target = "gold"
+def main():
+    spark = None
+    try:
+        spark = SparkSession.builder.appName("gold_claims").getOrCreate()
+        logger.info("SparkSession started")
 
+        # Read silver tables
+        claims    = read_from_gcs(spark, f"{SILVER_PATH}/claims")
+        providers = read_from_gcs(spark, f"{SILVER_PATH}/providers")
+        diagnosis = read_from_gcs(spark, f"{SILVER_PATH}/diagnosis")
+        costs     = read_from_gcs(spark, f"{SILVER_PATH}/costs")
 
-# ── Gold Table 1: gold_claim_base ──
-# Joins all silver tables into a single denormalized fact table
-@dlt.table(
-    name="gold_claim_base",
-    comment="Gold layer: Denormalized claims table joining claims, providers, diagnosis, and costs"
-)
-def gold_claim_base():
-    # Read silver tables and drop Auto Loader rescued data column to avoid join collisions
-    claims    = spark.read.table(f"{SILVER_CATALOG}.{SILVER_SCHEMA}.silver_claims").drop("_rescued_data")
-    providers = spark.read.table(f"{SILVER_CATALOG}.{SILVER_SCHEMA}.silver_providers").drop("_rescued_data")
-    diagnosis = spark.read.table(f"{SILVER_CATALOG}.{SILVER_SCHEMA}.silver_diagnosis").drop("_rescued_data")
-    costs     = spark.read.table(f"{SILVER_CATALOG}.{SILVER_SCHEMA}.silver_costs").drop("_rescued_data")
+        for name, df in [("claims", claims), ("providers", providers),
+                         ("diagnosis", diagnosis), ("costs", costs)]:
+            if df is None or df.rdd.isEmpty():
+                logger.error(f"Silver table '{name}' is empty or missing — cannot build gold layer")
+                sys.exit(1)
 
-    # Aggregate cost by procedure_code (average across regions)
-    cost_agg = costs.groupBy("procedure_code").agg(
-        avg("average_cost").alias("average_cost"),
-        avg("expected_cost").alias("expected_cost")
-    )
+        logger.info(f"Read silver tables — claims: {claims.count()} rows, "
+                    f"providers: {providers.count()} rows, "
+                    f"diagnosis: {diagnosis.count()} rows, "
+                    f"costs: {costs.count()} rows")
 
-    # Join all tables
-    gold = claims.join(providers, on="provider_id", how="left")
-    gold = gold.join(diagnosis, on="diagnosis_code", how="left")
-    gold = gold.join(cost_agg, on="procedure_code", how="left")
+        # Aggregate costs
+        logger.info("Aggregating costs by procedure_code")
+        cost_agg = costs.groupBy("procedure_code").agg(
+            avg("average_cost").alias("average_cost"),
+            avg("expected_cost").alias("expected_cost")
+        )
 
-    # Fill nulls from failed joins
-    gold = gold.fillna({
-        "category"      : "Unknown",
-        "severity"      : "Unknown",
-        "average_cost"  : 0.0,
-        "expected_cost" : 0.0,
-        "specialty"     : "Unknown",
-        "location"      : "Unknown",
-        "doctor_name"   : "Unknown"
-    })
+        # Join all tables
+        logger.info("Joining silver tables")
+        gold = claims.join(providers, on="provider_id", how="left") \
+                     .join(diagnosis, on="diagnosis_code", how="left") \
+                     .join(cost_agg, on="procedure_code", how="left")
 
-    return gold
+        # Fill nulls
+        gold = gold.fillna({
+            "category"     : "Unknown",
+            "severity"     : "Unknown",
+            "average_cost" : 0.0,
+            "expected_cost": 0.0,
+            "specialty"    : "Unknown",
+            "location"     : "Unknown",
+            "doctor_name"  : "Unknown"
+        })
 
+        # Feature engineering
+        logger.info("Engineering features")
+        gold = gold.withColumn(
+            "billed_vs_avg_cost",
+            round(col("billed_amount") / (col("average_cost") + 1), 2)
+        ).withColumn(
+            "high_cost_flag",
+            when(col("billed_amount") > col("average_cost"), 1).otherwise(0)
+        )
 
-# ── Gold Table 2: gold_claim_features ──
-# Enriched table with engineered features for ML consumption
-@dlt.table(
-    name="gold_claim_features",
-    comment="Gold layer: Feature-engineered claims table for ML model training"
-)
-def gold_claim_features():
-    # Read from gold_claim_base (same pipeline, so use dlt.read)
-    gold = dlt.read("gold_claim_base")
+        # Provider stats
+        logger.info("Computing provider stats")
+        provider_stats = gold.groupBy("provider_id").agg(
+            spark_count("claim_id").alias("provider_claim_count"),
+            round(spark_sum("denial_flag") / spark_count("claim_id"), 4).alias("provider_risk_score")
+        )
+        gold = gold.join(provider_stats, on="provider_id", how="left")
 
-    # ── 1. Billed vs Average Cost Ratio & High Cost Flag ──
-    gold = gold.withColumn(
-        "billed_vs_avg_cost",
-        round(col("billed_amount") / (col("average_cost") + 1), 2)
-    ).withColumn(
-        "high_cost_flag",
-        when(col("billed_amount") > col("average_cost"), 1).otherwise(0)
-    )
+        # Diagnosis count
+        logger.info("Computing diagnosis counts")
+        diagnosis_stats = gold.groupBy("diagnosis_code").agg(
+            spark_count("claim_id").alias("diagnosis_count")
+        )
+        gold = gold.join(diagnosis_stats, on="diagnosis_code", how="left")
 
-    # ── 2. Provider Statistics ──
-    # Claim count and risk score per provider
-    provider_stats = gold.groupBy("provider_id").agg(
-        spark_count("claim_id").alias("provider_claim_count"),
-        round(spark_sum("denial_flag") / spark_count("claim_id"), 4).alias("provider_risk_score")
-    )
-    gold = gold.join(provider_stats, on="provider_id", how="left")
+        # Claim frequency
+        logger.info("Computing claim frequency per patient")
+        claim_freq = gold.groupBy("patient_id").agg(
+            spark_count("claim_id").alias("claim_frequency")
+        )
+        gold = gold.join(claim_freq, on="patient_id", how="left")
 
-    # ── 3. Diagnosis Count ──
-    diagnosis_stats = gold.groupBy("diagnosis_code").agg(
-        spark_count("claim_id").alias("diagnosis_count")
-    )
-    gold = gold.join(diagnosis_stats, on="diagnosis_code", how="left")
+        # Severity score
+        gold = gold.withColumn(
+            "severity_score",
+            when(col("severity") == "High", 3)
+            .when(col("severity") == "Medium", 2)
+            .when(col("severity") == "Low", 1)
+            .otherwise(0)
+        )
 
-    # ── 4. Claim Frequency per Patient ──
-    claim_freq = gold.groupBy("patient_id").agg(
-        spark_count("claim_id").alias("claim_frequency")
-    )
-    gold = gold.join(claim_freq, on="patient_id", how="left")
+        if gold.rdd.isEmpty():
+            logger.error("Gold DataFrame is empty after joins — skipping write")
+            sys.exit(1)
 
-    # ── 5. Severity Score ──
-    gold = gold.withColumn(
-        "severity_score",
-        when(col("severity") == "High", 3)
-        .when(col("severity") == "Medium", 2)
-        .when(col("severity") == "Low", 1)
-        .otherwise(0)
-    )
+        row_count = gold.count()
+        write_to_bq(gold, "gold_claim_features")
+        logger.info(f"gold_claims done: {row_count} rows")
 
-    return gold
+    except Py4JJavaError as e:
+        logger.error(f"Spark/Java error in gold_claims: {e.java_exception}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error in gold_claims: {e}", exc_info=True)
+        sys.exit(1)
+    finally:
+        if spark:
+            spark.stop()
+            logger.info("SparkSession stopped")
+
+if __name__ == "__main__":
+    main()
