@@ -8,6 +8,5 @@ shap
 mlflow
 databricks-sql-connector
 openai
-pdfplumber
-sentence-transformers
+databricks-vectorsearch
 scikit-learn

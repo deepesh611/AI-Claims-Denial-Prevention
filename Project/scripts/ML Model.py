@@ -7,19 +7,15 @@ from pyspark.sql.functions import col, avg
 import numpy as np
 
 import os
-os.environ["MLFLOW_DFS_TMP"] = "/Volumes/main/models/model"
+os.environ["MLFLOW_DFS_TMP"] = "/Volumes/models/claim_denial/model"
 
 CATALOG = "main"
 SCHEMA  = "gold"
-
-
-
 
 gold_claim_features = spark.table(f"{CATALOG}.{SCHEMA}.gold_claim_features")
 
 print("gold_claim_features row count:", gold_claim_features.count())
 gold_claim_features.show(5)
-
 
 
 
@@ -50,6 +46,9 @@ ml_df = ml_df.fillna({
     "billed_vs_avg_cost" : 0.0,
     "claim_frequency"    : 0
 })
+
+# Drop rows with no label — can't train on NaN targets
+ml_df = ml_df.filter(col("denial_flag").isNotNull())
 
 print("Null check after fill:")
 from pyspark.sql.functions import when, isnull, count as spark_count
@@ -243,10 +242,12 @@ with mlflow.start_run(run_name="xgboost_final") as run:
     print(f"Run ID: {run_id}")
 
 # Register to Unity Catalog
+MODEL_CATALOG = "models"
+MODEL_SCHEMA  = "claim_denial"
 model_uri = f"runs:/{run_id}/xgb_model"
 registered_model = mlflow.register_model(
     model_uri=model_uri,
-    name=f"{CATALOG}.{SCHEMA}.claim_denial_model"
+    name=f"{MODEL_CATALOG}.{MODEL_SCHEMA}.claim_denial_model"
 )
 
 print(f"Model registered: {registered_model.name}")
