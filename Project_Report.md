@@ -1,4 +1,5 @@
 # AI-Powered Claim Denial Prevention & Remediation System
+
 ## Project Report
 
 ---
@@ -6,9 +7,9 @@
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [System Architecture & AI Pipeline](#2-system-architecture--ai-pipeline)
-3. [GCP Deployment & Cloud Services](#3-gcp-deployment--cloud-services)
-4. [Databricks Pipelines, Endpoints & Services](#4-databricks-pipelines-endpoints--services)
+2. [System Architecture &amp; AI Pipeline](#2-system-architecture--ai-pipeline)
+3. [GCP Deployment &amp; Cloud Services](#3-gcp-deployment--cloud-services)
+4. [Databricks Pipelines, Endpoints &amp; Services](#4-databricks-pipelines-endpoints--services)
 5. [Cost Analysis: Databricks vs. GCP-Native](#5-cost-analysis-databricks-vs-gcp-native)
 6. [Data Engineering — Medallion Architecture](#6-data-engineering--medallion-architecture)
 7. [HIPAA Compliance Posture](#7-hipaa-compliance-posture)
@@ -17,19 +18,19 @@
 
 ## 1. Project Overview
 
-The AI-Powered Claim Denial Prevention & Remediation System is a pre-submission insurance claims intelligence platform designed to predict, explain, and remediate healthcare claim denials before they are submitted to insurance payers. In the modern healthcare environment, claim denials are a massive source of revenue leakage and administrative overhead, requiring billing staff to manually review thousands of complex records. This system automates and simplifies that review by integrating a five-stage AI engine directly into the billing workflow: it executes rule-based validation, runs an ML risk-scoring model, identifies top risk drivers via SHAP explainability, performs semantic search to retrieve matching insurance policies (RAG), and generates a step-by-step remediation plan through a large language model. This entire automated pipeline is triggered via a single API call when billing analysts submit claim IDs or upload claim batches via an interactive web dashboard.
+* [ ] 
 
 Deployed as containerized services on Google Cloud Platform (GCP) Cloud Run, the system utilizes Databricks on GCP as its secure backend data lakehouse and ML serving environment. By leveraging a high-performance, serverless SQL Warehouse for rule execution and model feature retrieval, and Unity Catalog for data governance, the platform ensures data security and role-based access. Claims are evaluated pre-submission, which empowers hospital billing teams to correct formatting issues, policy conflicts, and coding errors dynamically, reducing claim cycle times and accelerating reimbursement.
 
 ### Five-Stage AI Core
 
-| Stage | Engine | Output |
-|---|---|---|
-| 1. Rule Validation | Databricks SQL query + Python logic | Pass / Fail (with specific failure reasons) |
-| 2. ML Risk Scoring | XGBoost (Databricks Model Serving) | Denial probability (0–1), risk label (High/Low) |
-| 3. SHAP Explainability | XGBoost native SHAP values | Top 2 risk factors per claim |
-| 4. RAG Policy Retrieval | Local embeddings + Databricks Vector Search | Relevant policy clause + source document |
-| 5. AI Agent Remediation | Locally hosted LLM / Agent Orchestration | Step-by-step fix recommendation |
+| Stage                   | Engine                                      | Output                                           |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------ |
+| 1. Rule Validation      | Databricks SQL query + Python logic         | Pass / Fail (with specific failure reasons)      |
+| 2. ML Risk Scoring      | XGBoost (Databricks Model Serving)          | Denial probability (0–1), risk label (High/Low) |
+| 3. SHAP Explainability  | XGBoost native SHAP values                  | Top 2 risk factors per claim                     |
+| 4. RAG Policy Retrieval | Local embeddings + Databricks Vector Search | Relevant policy clause + source document         |
+| 5. AI Agent Remediation | Locally hosted LLM / Agent Orchestration    | Step-by-step fix recommendation                  |
 
 ---
 
@@ -88,13 +89,15 @@ This conditional design avoids unnecessary compute: a claim that fails basic rul
 
 ### Services Used
 
-| GCP Service | Role in This Project |
-|---|---|
-| **Cloud Run** | Hosts both the FastAPI backend (port 8080) and the Next.js frontend (port 3000) as serverless, stateless containers. |
-| **Artifact Registry** | Stores the Docker images built from the API and frontend Dockerfiles. |
-| **Cloud Storage (GCS)** | Stores raw CSV data files, schemas, and policy documents in a secure bucket (`ai-claims-denial-data`). |
-| **Google OAuth (via NextAuth)** | Authenticates users through Google sign-in. The frontend enforces a strict analyst email whitelist via environment variables. |
-| **Databricks on GCP** | Hosting environment for the data pipelines, delta tables, machine learning model registry, ML serving endpoint, and vector search. |
+| GCP Service                                       | Role in This Project                                                                                                                                                              |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GCLB (Global Load Balancer)**             | Serves as the primary public entry point, routing external HTTPS traffic securely to the Cloud Run services.                                                                      |
+| **Cloud Run**                               | Hosts both the FastAPI backend (port 8080) and the Next.js frontend (port 3000) as serverless, stateless containers inside a secure VPC.                                          |
+| **Artifact Registry**                       | Stores the Docker images built from the API and frontend Dockerfiles, deployed via GitHub integration.                                                                            |
+| **Cloud Storage (GCS)**                     | Organizes storage into dedicated buckets:`Raw CSV Bucket` (for incoming data), `Policies Bucket` (for RAG documents), and `GCS Logs Bucket` (for periodic audit log sinks). |
+| **Cloud Logging**                           | Captures application, transactional, and security logs from the VPC services, executing periodic sinks to GCS.                                                                    |
+| **Google Identity Provider (Google OAuth)** | Authenticates users through Google sign-in. The frontend enforces a strict analyst email whitelist via environment variables.                                                     |
+| **Databricks on GCP**                       | Hosting environment for the data pipelines, delta tables, machine learning model registry, ML serving endpoint, and vector search.                                                |
 
 ### Container Architecture
 
@@ -109,50 +112,56 @@ The entire data, ML, and retrieval backend is consolidated on **Databricks on GC
 
 ### 4.1 Unity Catalog — Schema & Tables
 
-| Catalog.Schema | Table | Layer | Description |
-|---|---|---|---|
-| `main.bronze` | `bronze_claims` | Bronze | Raw claims with ingestion timestamp |
-| `main.bronze` | `bronze_providers` | Bronze | Raw provider reference data |
-| `main.bronze` | `bronze_diagnosis` | Bronze | Raw diagnosis codes |
-| `main.bronze` | `bronze_costs` | Bronze | Raw procedure cost benchmarks |
-| `main.silver` | `silver_claims` | Silver | Cleaned, deduplicated, imputed claims |
-| `main.silver` | `silver_providers` | Silver | Standardized provider records |
-| `main.silver` | `silver_diagnosis` | Silver | Standardized diagnosis codes |
-| `main.silver` | `silver_costs` | Silver | Cleaned cost benchmarks |
-| `main.gold` | `gold_claim_features` | Gold | Joined, feature-engineered ML-ready table |
+| Catalog.Schema  | Table                   | Layer  | Description                               |
+| --------------- | ----------------------- | ------ | ----------------------------------------- |
+| `main.bronze` | `bronze_claims`       | Bronze | Raw claims with ingestion timestamp       |
+| `main.bronze` | `bronze_providers`    | Bronze | Raw provider reference data               |
+| `main.bronze` | `bronze_diagnosis`    | Bronze | Raw diagnosis codes                       |
+| `main.bronze` | `bronze_costs`        | Bronze | Raw procedure cost benchmarks             |
+| `main.silver` | `silver_claims`       | Silver | Cleaned, deduplicated, imputed claims     |
+| `main.silver` | `silver_providers`    | Silver | Standardized provider records             |
+| `main.silver` | `silver_diagnosis`    | Silver | Standardized diagnosis codes              |
+| `main.silver` | `silver_costs`        | Silver | Cleaned cost benchmarks                   |
+| `main.gold`   | `gold_claim_features` | Gold   | Joined, feature-engineered ML-ready table |
 
-### 4.2 Delta Live Tables (DLT) Pipeline & Jobs Compute
+### 4.2 Databricks Workflows & Pipelines
 
-Data ingestion and feature preparation run directly on Databricks Spark clusters. A parallel implementation of the ETL exists as Databricks DLT notebooks in `Pipelines/ETL_DB/` containing built-in quality enforcement via `@dlt.expect_or_drop` decorators:
+The Databricks environment hosts three core pipelines that automate data engineering, model refreshment, and semantic indices:
 
-| Expectation | Table | Rule |
-|---|---|---|
-| `valid_claim_id` | silver_claims | `claim_id IS NOT NULL` |
-| `valid_billed_amount` | silver_claims | `billed_amount > 0` |
-| `valid_procedure_code` | silver_costs | `procedure_code IS NOT NULL` |
+1. **Databricks ETL Pipeline**: Reads raw files from the GCS `Raw CSV Bucket` on ingestion and runs PySpark scripts to perform cleaning, duplicate removal, and median imputation, structuring the data sequentially across the Bronze, Silver, and Gold Delta Tables.
+2. **ML Training Pipeline**: Runs on a scheduled trigger. It reads feature records from the Gold Delta Table, trains/evaluates the XGBoost model, registers the resulting artifacts to the MLflow Registry, and updates the active **ML Model Serving Endpoint** with the new champion model.
+3. **Databricks RAG Pipeline**: Triggers automatically on file arrival in the GCS `Policies Bucket`. It parses the policy PDFs, applies chunking, generates embeddings using the embeddings model, and syncs the vector data into the **Databricks Vector-Search Endpoint**.
+
+A parallel implementation of the ETL exists as Databricks Delta Live Tables (DLT) notebooks in `Pipelines/ETL_DB/` containing built-in quality enforcement via `@dlt.expect_or_drop` decorators:
+
+| Expectation              | Table            | Rule                           |
+| ------------------------ | ---------------- | ------------------------------ |
+| `valid_claim_id`       | silver_claims    | `claim_id IS NOT NULL`       |
+| `valid_billed_amount`  | silver_claims    | `billed_amount > 0`          |
+| `valid_procedure_code` | silver_costs     | `procedure_code IS NOT NULL` |
 | `valid_diagnosis_code` | silver_diagnosis | `diagnosis_code IS NOT NULL` |
 
 ### 4.3 Model Serving Endpoint
 
-| Property | Value |
-|---|---|
-| Endpoint name | `claim-denial-endpoint` |
-| Model path | `models:/models.claims_denial.claim_denial_model/champion` |
-| Model type | XGBoost binary classifier |
-| Features (7) | `billed_amount`, `billed_vs_avg_cost`, `high_cost_flag`, `severity_score`, `specialty_idx`, `category_idx`, `location_idx` |
-| Threshold | ≥ 0.5 → **High Risk**, < 0.5 → **Low Risk** |
-| Fallback | If the serving endpoint is unreachable, the API loads the model locally from MLflow. |
+| Property      | Value                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint name | `claim-denial-endpoint`                                                                                                                |
+| Model path    | `models:/models.claims_denial.claim_denial_model/champion`                                                                             |
+| Model type    | XGBoost binary classifier                                                                                                                |
+| Features (7)  | `billed_amount`, `billed_vs_avg_cost`, `high_cost_flag`, `severity_score`, `specialty_idx`, `category_idx`, `location_idx` |
+| Threshold     | ≥ 0.5 →**High Risk**, < 0.5 → **Low Risk**                                                                                |
+| Fallback      | If the serving endpoint is unreachable, the API loads the model locally from MLflow.                                                     |
 
 ### 4.4 Vector Search Index
 
-| Property | Value |
-|---|---|
-| Index name | `rag.embeddings.rag_chunks_index` |
+| Property         | Value                                                                    |
+| ---------------- | ------------------------------------------------------------------------ |
+| Index name       | `rag.embeddings.rag_chunks_index`                                      |
 | Source documents | Insurance policy PDFs (billing, coding, fraud, severity, provider rules) |
-| Chunking | 1000 characters, 200 character overlap |
-| Embedding model | Self-hosted/local vector embedding engine |
-| Retrieval | Top-1 most similar policy chunk per SHAP query |
-| Columns returned | `source` (PDF filename), `text` (chunk content) |
+| Chunking         | 1000 characters, 200 character overlap                                   |
+| Embedding model  | Self-hosted/local vector embedding engine                                |
+| Retrieval        | Top-1 most similar policy chunk per SHAP query                           |
+| Columns returned | `source` (PDF filename), `text` (chunk content)                      |
 
 ### 4.5 SQL Warehouse
 
@@ -177,26 +186,26 @@ This section estimates the monthly running costs of the current Databricks-first
 
 ### 5.2 Load Scenarios
 
-| Parameter | Scenario A (Small Hospital) | Scenario B (Large Hospital Network) |
-|---|---|---|
-| Concurrent users | 10 billing analysts | 50 billing analysts |
-| Claims processed/month | 10,000 | 200,000 |
-| Availability | Business hours (8×5) | Business hours (8×5) |
+| Parameter              | Scenario A (Small Hospital) | Scenario B (Large Hospital Network) |
+| ---------------------- | --------------------------- | ----------------------------------- |
+| Concurrent users       | 10 billing analysts         | 50 billing analysts                 |
+| Claims processed/month | 10,000                      | 200,000                             |
+| Availability           | Business hours (8×5)       | Business hours (8×5)               |
 
 ### 5.3 Current Stack — Databricks on GCP (Estimated Monthly Cost)
 
 In the current stack, Databricks Spark jobs and Delta Live Tables handle all ETL pipelines and orchestrations.
 
-| Service | Scenario A | Scenario B | Notes |
-|---|---|---|---|
-| Cloud Run (API + Frontend) | ~$30 | ~$80 | Scales to zero when idle |
-| Databricks SQL Warehouse | ~$60 | ~$200 | Per-query serverless SQL compute |
-| Databricks DLT / Jobs Compute | ~$65 | ~$200 | Spark ETL clusters and jobs orchestration |
-| Databricks Model Serving | ~$25 | ~$80 | Per-request inference serving |
-| Databricks Vector Search | ~$15 | ~$50 | Vector embedding index queries |
-| GCS Storage | ~$5 | ~$15 | Raw data CSVs + Delta table storage |
-| Locally Hosted LLM / Embeddings | ~$40 | ~$150 | Dedicated GPU/CPU instance compute |
-| **Total** | **~$240/month** | **~$775/month** | |
+| Service                         | Scenario A                                    | Scenario B                                | Notes |
+| ------------------------------- | --------------------------------------------- | ----------------------------------------- | ----- |
+| Cloud Run (API + Frontend)      | ~$30 | ~$80                                   | Scales to zero when idle                  |       |
+| Databricks SQL Warehouse        | ~$60 | ~$200                                  | Per-query serverless SQL compute          |       |
+| Databricks DLT / Jobs Compute   | ~$65 | ~$200                                  | Spark ETL clusters and jobs orchestration |       |
+| Databricks Model Serving        | ~$25 | ~$80                                   | Per-request inference serving             |       |
+| Databricks Vector Search        | ~$15 | ~$50                                   | Vector embedding index queries            |       |
+| GCS Storage                     | ~$5 | ~$15                                    | Raw data CSVs + Delta table storage       |       |
+| Locally Hosted LLM / Embeddings | ~$40 | ~$150                                  | Dedicated GPU/CPU instance compute        |       |
+| **Total**                 | **~$240/month** | **~$775/month** |                                           |       |
 
 > Databricks-specific services (SQL Warehouse + Jobs/DLT + Model Serving + Vector Search) account for **~$165/month (68%)** in Scenario A and **~$530/month (68%)** in Scenario B.
 
@@ -204,45 +213,45 @@ In the current stack, Databricks Spark jobs and Delta Live Tables handle all ETL
 
 This alternative architecture replaces the Databricks layer with native Google Cloud services:
 
-| Databricks Service | GCP-Native Replacement | Rationale |
-|---|---|---|
-| SQL Warehouse | **BigQuery** | Serverless SQL engine with on-demand pricing and no idle cluster costs. |
-| DLT / Jobs Compute | **Dataproc Serverless** + **GCP Workflows** | Run Spark jobs on-demand and orchestrate via serverless workflows. |
-| Model Serving | **Vertex AI Prediction** | Managed model serving with auto-scaling to zero for XGBoost. |
-| Vector Search | **Vertex AI Vector Search** | Serverless approximate nearest neighbor (ANN) vector database. |
-| Unity Catalog | **BigQuery Datasets + IAM** | Dataset-level permissions and Google Cloud IAM roles. |
+| Databricks Service | GCP-Native Replacement                                  | Rationale                                                               |
+| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| SQL Warehouse      | **BigQuery**                                      | Serverless SQL engine with on-demand pricing and no idle cluster costs. |
+| DLT / Jobs Compute | **Dataproc Serverless** + **GCP Workflows** | Run Spark jobs on-demand and orchestrate via serverless workflows.      |
+| Model Serving      | **Vertex AI Prediction**                          | Managed model serving with auto-scaling to zero for XGBoost.            |
+| Vector Search      | **Vertex AI Vector Search**                       | Serverless approximate nearest neighbor (ANN) vector database.          |
+| Unity Catalog      | **BigQuery Datasets + IAM**                       | Dataset-level permissions and Google Cloud IAM roles.                   |
 
 ### 5.5 GCP-Native Estimated Monthly Cost
 
-| Service | Scenario A | Scenario B | Notes |
-|---|---|---|---|
-| Cloud Run (API + Frontend) | ~$30 | ~$80 | Unchanged |
-| BigQuery (queries + storage) | ~$15 | ~$60 | On-demand query pricing |
-| Dataproc Serverless (ETL) | ~$20 | ~$70 | On-demand PySpark execution |
-| GCP Workflows | ~$1 | ~$5 | Serverless step execution orchestration |
-| Vertex AI Prediction | ~$15 | ~$50 | Serverless XGBoost inference hosting |
-| Vertex AI Vector Search | ~$10 | ~$40 | Vector database hosting |
-| GCS Storage | ~$5 | ~$15 | Unchanged |
-| Locally Hosted LLM / Embeddings | ~$40 | ~$150 | Unchanged (same compute endpoints) |
-| **Total** | **~$136/month** | **~$470/month** | |
+| Service                         | Scenario A                                    | Scenario B                              | Notes |
+| ------------------------------- | --------------------------------------------- | --------------------------------------- | ----- |
+| Cloud Run (API + Frontend)      | ~$30 | ~$80                                   | Unchanged                               |       |
+| BigQuery (queries + storage)    | ~$15 | ~$60                                   | On-demand query pricing                 |       |
+| Dataproc Serverless (ETL)       | ~$20 | ~$70                                   | On-demand PySpark execution             |       |
+| GCP Workflows                   | ~$1 | ~$5                                     | Serverless step execution orchestration |       |
+| Vertex AI Prediction            | ~$15 | ~$50                                   | Serverless XGBoost inference hosting    |       |
+| Vertex AI Vector Search         | ~$10 | ~$40                                   | Vector database hosting                 |       |
+| GCS Storage                     | ~$5 | ~$15                                    | Unchanged                               |       |
+| Locally Hosted LLM / Embeddings | ~$40 | ~$150                                  | Unchanged (same compute endpoints)      |       |
+| **Total**                 | **~$136/month** | **~$470/month** |                                         |       |
 
 ### 5.6 Savings Summary
 
-| | Scenario A | Scenario B |
-|---|---|---|
-| Databricks stack | ~$240/month | ~$775/month |
-| GCP-native stack | ~$136/month | ~$470/month |
-| **Monthly saving** | **~$104/month** | **~$305/month** |
-| **Annual saving** | **~$1,248/year** | **~$3,660/year** |
-| **Reduction** | **~43%** | **~39%** |
+|                          | Scenario A                                      | Scenario B     |
+| ------------------------ | ----------------------------------------------- | -------------- |
+| Databricks stack         | ~$240/month | ~$775/month                       |                |
+| GCP-native stack         | ~$136/month | ~$470/month                       |                |
+| **Monthly saving** | **~$104/month** | **~$305/month**   |                |
+| **Annual saving**  | **~$1,248/year** | **~$3,660/year** |                |
+| **Reduction**      | **~43%**                                  | **~39%** |
 
 ### 5.7 Trade-offs
 
-| Advantage of Databricks | Advantage of GCP-Native |
-|---|---|
-| **Unified Workspace**: Single platform for collaborative notebooks, ETL pipelines, and ML experiments. | **Lower Cost**: Avoids Databricks licensing markup (DBUs) and cluster compute overhead. |
-| **Delta Live Tables**: Built-in data quality metrics, expectations, and lineage out of the box. | **Zero Maintenance**: BigQuery and Dataproc Serverless require no cluster management. |
-| **Unity Catalog**: Fine-grained data access control across SQL, Python, and ML artifacts. | **Native Integration**: Seamless security, deployment, and billing within a single GCP ecosystem. |
+| Advantage of Databricks                                                                                      | Advantage of GCP-Native                                                                                 |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| **Unified Workspace**: Single platform for collaborative notebooks, ETL pipelines, and ML experiments. | **Lower Cost**: Avoids Databricks licensing markup (DBUs) and cluster compute overhead.           |
+| **Delta Live Tables**: Built-in data quality metrics, expectations, and lineage out of the box.        | **Zero Maintenance**: BigQuery and Dataproc Serverless require no cluster management.             |
+| **Unity Catalog**: Fine-grained data access control across SQL, Python, and ML artifacts.              | **Native Integration**: Seamless security, deployment, and billing within a single GCP ecosystem. |
 
 ---
 

@@ -20,14 +20,14 @@ An end-to-end intelligent healthcare platform designed to predict, explain, and 
 
 The platform spans three primary tiers:
 
-*   **Frontend Dashboard (Next.js)**: Built using Next.js 16, React 19, Tailwind CSS 4, and shadcn/ui. Handles user authentication via Google OAuth (NextAuth) with a whitelisted email filter and triggers background predictive pipelines.
+*   **Frontend Dashboard (Next.js)**: Built using Next.js, React 19, Tailwind CSS 4, and shadcn/ui. Handles user authentication via Google OAuth (NextAuth) with a whitelisted email filter and triggers background predictive pipelines.
 *   **Backend Orchestrator API (FastAPI)**: Serves the `/predict` endpoint, coordinates the AI/ML pipeline, decodes JWT payloads for HIPAA-compliant structured audit logs, and handles communication with Databricks and OpenAI.
 *   **Data Lakehouse & ML Platform (Databricks + GCP)**: Utilizes a Medallion Lakehouse architecture (Bronze ➔ Silver ➔ Gold feature tables) to store clean features, register models with MLflow, and index policy files via Databricks Vector Search.
 
 ### Architecture Options & Cost Documentation
-The system supports two design variants located in `Project/docs`:
-*   **v1 (Databricks-Centric)**: Runs Spark-based ETLs via Delta Live Tables (DLT), model serving via MLflow endpoints, and vector search on Databricks. Detail is documented in [architecture_cost_report.md](Project/docs/architecture_cost_report.md).
-*   **v2 (AWS-Native Cost Optimized)**: Designed for small-to-midsize hospitals, swapping Databricks for AWS Glue, S3 Delta Lake, EC2 model runs, and FAISS vector indices, achieving ~60% cost reduction. Detail is documented in [cost analysis v2.md](Project/docs/cost%20analysis%20v2.md).
+The system supports two design configurations detailed in the documentation:
+*   **Databricks-Centric on GCP (Active Stack)**: The current production implementation running Spark-based ETLs via Databricks Workflows, model serving via MLflow endpoints, and vector search on Databricks. Details are documented in [Project_Report.md](Project_Report.md).
+*   **GCP-Native Serverless (Cost-Optimized Alternative)**: A proposed design replacing the Databricks layer with native GCP tools (BigQuery, Dataproc Serverless, GCP Workflows, and Vertex AI), achieving a 40–43% cost reduction. Details are documented in [Project_Report.md](Project_Report.md).
 
 ---
 
@@ -35,15 +35,6 @@ The system supports two design variants located in `Project/docs`:
 
 ```text
 .
-├── Assignment/                  # HIPAA compliance studies and demos
-│   ├── Implementation-1/        # HTML/CSS/JS browser demo of the HIPAA Privacy Rule
-│   │   └── HIPAA_Privacy_Rule_Demo_Guide.md
-│   ├── Implementation-2/        # Python Jupyter Notebook demo of HIPAA Security Rules
-│   │   └── HIPAA_Privacy_Rule_Demo.ipynb
-│   ├── Privacy Rule.md          # Privacy compliance scenario definitions
-│   ├── Security Rule.md         # Security compliance scenario definitions
-│   ├── hipaa.md                 # Foundational HIPAA rule overview
-│   └── hipaa_implementation.md  # Core plan for HIPAA technical safeguards
 ├── Project/                     # Primary application code
 │   ├── api/                     # FastAPI backend orchestration service
 │   │   ├── pipeline/            # Sequential AI pipeline stages
@@ -60,8 +51,8 @@ The system supports two design variants located in `Project/docs`:
 │   │   └── requirements.txt     # Python requirements (uvicorn, fastapi, xgboost, etc.)
 │   ├── architectures/           # High-Level (HLA) and Low-Level (LLA) diagrams
 │   ├── docs/                    # Technical designs, prompt libraries, and notebooks
-│   │   ├── architecture_cost_report.md # Databricks GCP deployment and cost analysis
-│   │   ├── cost analysis v2.md         # AWS Glue/FAISS alternative cost analysis
+│   │   ├── architecture_cost_report.md # Databricks GCP deployment and cost analysis (v1)
+│   │   ├── cost analysis v2.md         # AWS Glue/FAISS alternative cost analysis (v2)
 │   │   ├── diag_prompts.md             # Visual diagram prompts for Lucidchart
 │   │   └── notebook_explanation.md     # Cell-by-cell walkthrough of training code
 │   ├── frontend/                # Next.js frontend dashboard
@@ -107,9 +98,9 @@ The system supports two design variants located in `Project/docs`:
 
 ## 💻 Tech Stack Summary
 
-*   **Frontend**: Next.js 16.2.6 (App Router), React 19.2.4, Tailwind CSS 4.2.0, shadcn/ui, NextAuth.js 4.24.14 (Google OAuth).
+*   **Frontend**: Next.js (App Router), React 19, Tailwind CSS 4, shadcn/ui, NextAuth.js (Google OAuth).
 *   **Backend**: FastAPI, Pydantic, Uvicorn, Pandas, NumPy, XGBoost, Scikit-Learn, MLflow.
-*   **Orchestration & Data Platforms**: GCP Dataproc Serverless, Apache Airflow, Databricks Delta Live Tables, Delta Lake, Unity Catalog, OpenAI API (`text-embedding-3-small`, `gpt-4o-mini`).
+*   **Orchestration & Data Platforms**: Databricks Workflows/Jobs, Delta Live Tables (DLT), Delta Lake, Unity Catalog, OpenAI API (`text-embedding-3-small`, `gpt-4o-mini`).
 
 ---
 
